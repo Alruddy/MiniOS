@@ -175,5 +175,95 @@ p_mode_start:
 	
 	mov byte [gs:160], 'P'
     mov byte [gs:161], 0xa4	
+	
+	call setup_page ; 设置页目录和页表
+	; 将视频显示段基址加上0xc0000000
+	sgdt [gdt_ptr]	
+	mov ebx, [gdt_ptr+2]
+	or dword [ebx + 0x18 + 4], 0xc0000000
+	
+	; gdt基址加上0xc0000000成为内核地址
+	add dword [gdt_ptr+2], 0xc0000000
+	; 栈指针移动到内核区域
+	add esp, 0xc0000000
+	; 页目录赋值为cr3
+	mov eax, PAGE_DIR_TABLE_POS
+	mov cr3, eax
+	; 打开cr0的pg位，设置分页
+	mov eax, cr0
+	or eax, 0x80000000
+	mov cr0, eax
+	; 重新加载gdt
+	lgdt [gdt_ptr]
+	; 使用新地址打印字符
+	mov byte [gs:162], 'V'
+	
 	jmp $
 
+; -------------------- 创建页目录和页表 ------------------------
+setup_page:
+; 先将页目录的占用空间逐字节清0
+	mov ecx, 4096
+	mov esi, 0
+.clear_page_dir:
+	mov byte [PAGE_DIR_TABLE_POS + esi], 0
+	inc esi
+	loop .clear_page_dir
+
+; 开始创建页目录项PDE
+.create_pde:
+	mov eax, PAGE_DIR_TABLE_POS
+	add eax, 0x1000		; 第一个页表项的地址
+	mov ebx, eax		; 储存基址
+; 将页目录项中0和0xc00都指向第一个页表项地址
+
+; 设置目录项的属性RW和P都为1， US为1表示用户属性，所有特权级别都可以访问
+	or eax, PG_RW_W | PG_P | PG_US_U
+	mov [PAGE_DIR_TABLE_POS + 0x000], eax	; 最多有1024个页目录项，最后一个目录项指向自己目录表地址
+	mov [PAGE_DIR_TABLE_POS + 0xc00], eax	; 768
+	
+	sub eax, 0x1000
+	mov [PAGE_DIR_TABLE_POS + 4092], eax	; 1023
+	
+; 创建页表 pte
+	mov ecx, 256	; 因为1M/4k = 256
+	mov esi, 0
+	mov edx, PG_US_U | PG_RW_W | PG_P
+.create_pte:
+	mov [ebx + 4*esi], edx
+	add edx, 4096
+	inc esi
+	loop .create_pte
+	
+; 创建内核和其他页表项pde, 769~1022
+	mov eax, PAGE_DIR_TABLE_POS
+	add eax, 0x2000	; 第二个页表项
+	or eax,  PG_US_U | PG_RW_W | PG_P
+	mov ebx, PAGE_DIR_TABLE_POS
+	mov ecx, 254
+	mov esi, 769
+.create_kernel_pde:
+	mov [ebx + esi*4], eax
+	inc esi
+	add eax, 0x1000
+	loop .create_kernel_pde
+	ret
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
