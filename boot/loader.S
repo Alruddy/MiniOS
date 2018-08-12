@@ -174,8 +174,17 @@ p_mode_start:
 	mov gs, ax
 	
 	mov byte [gs:160], 'P'
-    mov byte [gs:161], 0xa4	
-	
+    	mov byte [gs:161], 0xa4	
+
+	; --------- 加载kernel--------
+	mov eax, KERNEL_START_SECTOR  ; kernel.bin所在的扇区
+	mov ebx, KERNEL_BIN_BASE_ADDR ; 从磁盘读取后，写入到ebx中
+	; 从磁盘读取的扇区数
+	mov ecx, 200
+	; 读取扇区
+	call read_disk_m_32
+	; 创建内核和其他页表项pde
+
 	call setup_page ; 设置页目录和页表
 	; 将视频显示段基址加上0xc0000000
 	sgdt [gdt_ptr]	
@@ -197,9 +206,73 @@ p_mode_start:
 	lgdt [gdt_ptr]
 	; 使用新地址打印字符
 	mov byte [gs:162], 'V'
+	; -------- 刷新流水线 ----------
+	jmp SELECTOR_CODE:enter_kernel	;更新gdt
+enter_kernel:
+; -------------------------------------------------------------
+	call kernel_init
+	mov esp, 0xc009f000
+	jmp KERNEL_ENTRY_POINT
 	
 	jmp $
+; -------------------- 读取磁盘扇区到内存 --------------------------
+read_disk_m_32:
+; ---------------------------------
+	mov esi, eax				; 备份初始扇区地址
+	mov di, cx					; 备份数量
 
+; 读写硬盘
+; 1. 设置扇区数量
+	mov dx, 0x1f2
+	mov al, cl
+	out dx, al 					; 读取扇区数
+
+	mov eax, esi
+; 2. 设置LBA 地址
+	mov dx, 0x1f3				; 0~7
+	out dx, al
+
+	mov cl, 8
+	shr eax, cl
+	mov dx, 0x1f4				; 8~15
+	out dx, al
+	
+	shr eax, cl	
+	mov dx, 0x1f5				; 16~23
+	out dx, al
+
+	shr eax, cl					; 24~27
+	and al, 0x0f
+	or  al, 0xe0
+	mov dx, 0x1f6
+	out dx, al
+
+; 3. 端口写入读命令
+	mov dx, 0x1f7
+	mov al, 0x20
+	out dx, al
+
+; 4. 检测硬盘状态
+ .not_ready:
+	; 统一端口， 读时表示状态
+	nop
+	in al, dx
+	and al, 0x88 ; 0x80 硬盘忙 0x08 硬盘准备好
+	cmp al, 0x08
+	jnz .not_ready
+; 5. 从数据端口读取数据
+	mov ax, di
+	mov dx, 256
+	mul dx
+	mov cx, ax
+	; di 是扇区数量, 一个扇区512字节，每次读取一个字，所以是*256
+	mov dx, 0x1f0
+.go_on_read:
+	in ax, dx
+	mov [ebx], ax
+	add ebx, 2
+	loop .go_on_read
+	ret
 ; -------------------- 创建页目录和页表 ------------------------
 setup_page:
 ; 先将页目录的占用空间逐字节清0
@@ -248,18 +321,55 @@ setup_page:
 	add eax, 0x1000
 	loop .create_kernel_pde
 	ret
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+; -------------------将kernel.bin 中的segment拷贝到编译的地址 -----------
+kernel_init:
+	xor eax, eax
+	xor ebx, ebx	; ebx记录表头地址
+	xor ecx, ecx	; 记录程序头中program header的数量
+	xor edx, edx	; edx 记录program header的大小,即e_phentsize
+
+	mov dx, [KERNEL_BIN_BASE_ADDR + 42] ; e_phentsize
+	mov ebx, [KERNEL_BIN_BASE_ADDR + 28] ; e_phoff
+
+	add ebx, KERNEL_BIN_BASE_ADDR ; 表头地址的实际值
+	mov cx, [KERNEL_BIN_BASE_ADDR + 44] ; e_phnum
+
+.each_segment:
+	cmp byte [ebx+0], PT_NULL
+	; 程序头没有使用，是PTNULL
+	je .PTNULL
+
+	; 为函数memcpy压入参数，参数从右往左压入； memcpy(dst, src, size)
+	push dword [ebx+16]	; p_filesz, 压入size
+
+	mov eax, [ebx+4]	; p_offset
+	add eax, KERNEL_BIN_BASE_ADDR ; 获得其物理地址
+	push eax	; 压入size
+
+	push dword [ebx + 8] 	; p_vaddr, 压入dst
+	call mem_cpy	; 调用memcpy
+	add esp, 12	; size + src + dst = 4+4+4 =12	
+.PTNULL:
+	add ebx, edx
+	loop .each_segment
+	ret
+; ---------------- 逐字节拷贝 ----------------------------------
+; 输入： 栈中三个参数(dst, src, size)
+; --------------------------------------------------------------
+mem_cpy:
+	cld
+	push ebx
+	mov ebp, esp
+	push ecx
+
+	mov edi, [ebp+8]	; dst ; ebp: ecx ; ebp+4: 下一条指令
+	mov esi, [ebp+12]	; src
+	mov ecx, [ebp+16]	; size
+	rep movsb
+
+	pop ecx
+	pop ebx
+	ret
 	
 	
 	
