@@ -120,11 +120,29 @@ put_char:
 	popad
 	ret
 
-
-
-
-
-
+; ---------------- print_str -------------------------
+; 通过put_char来打印字符串 cdecl调用约定
+; ----------------------------------------------------
+global put_str
+put_str:
+	push ebx
+	push ecx
+	; 字符串首地址和字符串长度
+	xor ecx, ecx
+	mov ebx, [esp+12] 	; 从栈中获得首地址
+.goon:
+	mov cl, [ebx]
+	cmp cl, 0	;字符串结尾
+	jz  .str_over
+	push ecx	; 压入打印字符
+	call put_char
+	add esp, 4	; cdecl 约定
+	inc ebx		; 下一个字符
+	jmp .goon
+.str_over:
+	pop ecx
+	pop ebx
+	ret
 
 
 
