@@ -81,7 +81,7 @@ put_char:
 
 .is_carriage_return_end:
 	add bx, 80	; 下一行
-	cmp cx, 2000	; 是否超出显示范围2000=80*25
+	cmp bx, 2000	; 是否超出显示范围2000=80*25
 .is_line_feed_end:
 	jl .set_cursor
 
