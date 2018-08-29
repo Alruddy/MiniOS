@@ -3,6 +3,7 @@
 %define ZERO push 0	; 若在相关异常没有压入错误码，压入一个0来保持栈格式统一
 
 extern put_str		; 声明外部函数
+extern idt_table	; C中的中断处理函数
 
 section .data 
 intr_str db "interrupt occur!", 0xa, 0
@@ -13,21 +14,42 @@ intr_entry_table:
 section .text
 intr%1entry:			; 每个中断处理的向量所对应的处理函数
 	%2		 	; ERROR_CODE / ZERO
-	push intr_str
-	call put_str
-	add esp, 4		; 调用约定
 
-	; 如果是从片上进入的中断，要向主从的8425A发送EOI
+	; 保存上下文
+	push ds
+	push es
+	push fs
+	push gs
+	pushad	; 压入8个32位寄存器 eax, ecx, edx, edx, esp, ebp, esi, edi
+
+	; 如果从片中进入的中断
+	; 除了王从片发送EOI，还要往主片上发送
 	mov al, 0x20
-	out 0x20, al 
 	out 0xa0, al 
+	out 0x20, al 
 
-	add esp, 4		; 调用约定,弹出地址
-	iret
+	push %1
+	call [idt_table + %1*4]	; 调用C中断处理函数
+
+	jmp intr_exit		; 退出
 
 section .data 
 	dd intr%1entry		; intr_entry_table数组 
 %endmacro
+
+section .text
+global intr_exit
+intr_exit:
+	; 恢复上下文环境
+	add esp, 4
+	popad
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	add esp, 4 ; 跳过error_code
+	iretd
+	
 
 VECTOR 0x00,ZERO
 VECTOR 0x01,ZERO

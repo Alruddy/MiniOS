@@ -11,7 +11,7 @@
 /*向端口写入一个字节*/
 static inline void outb(uint16_t port, uint8_t data) {
 /*	对端口N表示0~255的立即数, d表示dx*/
-	asm volatile("outb %b0, %w1" : : "a"(data), "Nd"(data));
+	asm volatile("outb %b0, %w1" : : "a"(data), "Nd"(port));
 }
 
 /* 将addr处开始的word_cnt个字写入端口 */

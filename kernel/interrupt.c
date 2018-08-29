@@ -22,6 +22,8 @@ struct gate_desc {
 // 静态函数声明
 static void make_idt_desc(struct gate_desc* p_gdesc, uint8_t attr, intr_handler function);
 static struct gate_desc idt[IDT_DESC_CNT];			// idt是中断描述符表,是描述符数组
+char* intr_name[IDT_DESC_CNT];						// 异常处理
+intr_handler idt_table[IDT_DESC_CNT];				// 中断处理函数数组,在kernel.S的入口中调用
 extern intr_handler intr_entry_table[IDT_DESC_CNT];	// 引用kernel.S中的描述符数组
 
 /*创建中断门描述符*/
@@ -57,22 +59,65 @@ static void pic_init(void) {
 	outb(PIC_S_DATA, 0x01);
 
 	/*设置中断屏蔽,打开主片上的时钟产生的中断 ir0*/
-	outb(PIC_M_CTRL, 0xfe);
-	outb(PIC_S_CTRL, 0xff);
+	outb(PIC_M_DATA, 0xfe);
+	outb(PIC_S_DATA, 0xff);
 	put_str("    pic_init done\n");
 }
 
+/*通用的中断处理函数，用于中断异常出现的处理*/
+static void general_intr_handler(uint8_t vec_nr) {
+	if (vec_nr == 0x27 || vec_nr == 0x2f) {
+		// 伪中断
+		return;
+	}
+	put_str("int vector : 0x");
+	put_int(vec_nr);
+	put_char('\n');
+}
+
+
+/*完成一般中断处理函数注册以及异常名称注册*/
+static void exception_init(void) {
+	int i;
+	for (i = 0; i < IDT_DESC_CNT; i++) {
+		/*idt_table 数组中的函数是在进入中断后根据中断向量号调用的*/
+		idt_table[i] = general_intr_handler;
+		intr_name[i] = "unknown";
+	}
+	intr_name[0] = "#DE Divide Error"; 
+	intr_name[1] = "#DB Debug Exception";
+	intr_name[2] = "NMI Interrupt";
+	intr_name[3] = "#BP Breakpoint Exception";
+	intr_name[4] = "#OF Overflow Exception";
+	intr_name[5] = "#BR Bound Range Exceed Exception";
+	intr_name[6] = "#UD Invaild Opcode Exception";
+	intr_name[7] = "#NM Device Not Available Exception";
+	intr_name[8] = "#DF Double Fault Exception";
+	intr_name[9] = "Coprocessor Segment Overrun";
+	intr_name[10] = "#TS Invaild TSS Exception";
+	intr_name[11] = "#NP Segment Not Present";
+	intr_name[12] = "#SS Stack Fault Exception";
+	intr_name[13] = "#GP General Protection Exception";
+	intr_name[14] = "#PF Page-Fault Exception";
+	// intr_name[15] intel 保留
+	intr_name[16] = "#MF x87 FPU Floating-Point Error";
+	intr_name[17] = "#AC Alignment Check Exception";
+	intr_name[18] = "#MC Machine-Check Exception";
+	intr_name[19] = "#XF SIMD Floating-Point Exception";
+}
 
 /*完成有关中断的所有初始化工作*/
 void idt_init() {
 	put_str("idt_init start\n");
 	idt_desc_init();	// 初始化描述符
+	exception_init(); 	// 异常名初始化
 	pic_init();			// 初始化8259A
 
 	/*加载idt*/
 	uint64_t idt_operand = ((sizeof(idt)-1) | ((uint64_t)((uint32_t)idt) << 16)) ;
 	asm volatile("lidt %0" : : "m"(idt_operand));
-	put_char("idt_init done\n");
+	put_str("idt_init done\n");
 }
+
 
 
