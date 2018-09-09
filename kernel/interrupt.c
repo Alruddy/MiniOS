@@ -2,6 +2,7 @@
 #include "stdint.h"
 #include "global.h"
 #include "io.h"
+#include "print.h"
 
 #define PIC_M_CTRL 0x20			// 主片控制口 icw1/ocw2/ocw3
 #define PIC_M_DATA 0x21			// 主片数据口 icw2/icw3/icw4/ocw1
@@ -9,6 +10,8 @@
 #define PIC_S_DATA 0xa1			// 从片数据口
 
 #define IDT_DESC_CNT 0x21 		// 中断向量数
+#define EFLAGS_IF	0x00000200	// eflags 中的if位置1
+#define GET_EFLAGS(EFLAG_VAR)  asm volatile ("pushfl; popl %0" : "=g"(EFLAG_VAR))
 
 /*中断门描述符结构*/
 struct gate_desc {
@@ -119,5 +122,43 @@ void idt_init() {
 	put_str("idt_init done\n");
 }
 
+/*开中断, 并且返回开中断前的状态*/
+enum intr_status intr_enable() {
+	enum intr_status old_status;
+	if (INTR_ON == intr_get_status()) {
+		old_status = INTR_ON;
+		return old_status;
+	} else {
+		old_status = INTR_OFF;
+		asm volatile("sti");
+		return old_status;
+	}
+}
+
+
+/*关中断,并且返回关中断前的状态*/
+enum intr_status intr_disable(){
+	enum intr_status old_status;
+	if (INTR_ON == intr_get_status()) {
+		old_status = INTR_ON;
+		asm volatile("cli": : : "memory"); // 关中断, cli 指令置1
+		return old_status;
+	} else {
+		old_status = INTR_OFF;
+		return old_status;
+	}
+}
+
+/*将中断位置为status*/
+enum intr_status intr_set_status(enum intr_status status) {
+	return (status & INTR_ON) ? intr_enable() : intr_disable();
+}
+
+/*获取中断的中间状态*/
+enum intr_status intr_get_status() {
+	uint32_t eflags = 0;
+	GET_EFLAGS(eflags);
+	return (eflags & EFLAGS_IF) ? INTR_ON : INTR_OFF;
+}
 
 
