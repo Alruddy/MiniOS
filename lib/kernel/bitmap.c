@@ -33,7 +33,7 @@ int bitmap_scan(struct bitmap * btmp, uint32_t cnt) {
 		idx_bit++;
 	}
 
-	int bit_idx_start = idx_byte * 8 + idx_byte;
+	int bit_idx_start = idx_byte * 8 + idx_bit;
 	if (cnt == 1) {
 		return bit_idx_start;
 	}
