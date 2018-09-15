@@ -1,5 +1,6 @@
 #ifndef __LIB_STRING_H_
-#define __LIB_STDINT_H_
+#define __LIB_STRING_H_
+#include "stdint.h"
 void memset(void* dst_, uint8_t value, uint32_t size);
 void memcpy(void* dst_, const void* src_, uint32_t size);
 int memcmp(const void* a_, const void* b_, uint32_t size);

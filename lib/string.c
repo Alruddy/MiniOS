@@ -15,8 +15,9 @@ void memset(void * dst_, uint8_t value, uint32_t size) {
 void memcpy(void * dst_, const void * src_, uint32_t size) {
 	ASSERT(dst_ != NULL && src_ != NULL);
 	uint8_t* dst = dst_;
+	const uint8_t* src = src_;
 	while (size-- > 0) {
-		*dst++ = *src_++
+		*dst++ = *src++;
 	}
 }
 
@@ -24,7 +25,7 @@ void memcpy(void * dst_, const void * src_, uint32_t size) {
     a > b 返回 1 
 	a < b 返回-1
 */
-void memcmp(const void * a_, const void * b_, uint32_t size) {
+int memcmp(const void * a_, const void * b_, uint32_t size) {
 	const char *a = a_;
 	const char *b = b_;
 	ASSERT(a != NULL && b != NULL);
@@ -51,7 +52,7 @@ char* strcpy(char * dst_, const char * src_) {
     a > b 返回 1 
 	a < b 返回-1
 */
-char* strcmp(const char * a, const char * b) {
+int8_t strcmp(const char * a, const char * b) {
 	ASSERT(a != NULL && b != NULL);
 	while(*a != 0 && *a == *b) {
 		a++;
@@ -83,7 +84,7 @@ char* strrchr(const char * str, const uint8_t ch) {
 		}
 		str++;
 	}
-	return last_char;
+	return (char* )last_char;
 }
 
 /*将字符串进行拼接*/
