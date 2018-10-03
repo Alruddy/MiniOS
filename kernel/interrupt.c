@@ -73,9 +73,26 @@ static void general_intr_handler(uint8_t vec_nr) {
 		// 伪中断
 		return;
 	}
-	put_str("int vector : 0x");
-	put_int(vec_nr);
-	put_char('\n');
+	/* 清4行 */
+	set_cursor(0);
+	int cursor_pos = 0;
+	while(cursor_pos < 320) {
+		put_char(' ');
+		cursor_pos++;
+	}
+	set_cursor(0);
+
+	put_str("!!!! exception message begin !!!!\n");
+	set_cursor(88);
+	put_str(intr_name[vec_nr]);
+	if (vec_nr == 14) { /* PG pagefault错误, 打印出来 */
+		int page_fault_vaddr = 0;
+		asm volatile("movl %%cr2, %0":"=r"(page_fault_vaddr));
+		put_str("\npage fault addr is: "); put_int(page_fault_vaddr);
+	}
+	
+	put_str("\n!!!! exception message end !!!\n");
+	while(1);
 }
 
 
@@ -161,4 +178,7 @@ enum intr_status intr_get_status() {
 	return (eflags & EFLAGS_IF) ? INTR_ON : INTR_OFF;
 }
 
-
+/* 注册安装中断处理程序 */
+void register_handler(uint8_t vector_no, intr_handler function) {
+	idt_table[vector_no] = function;
+}

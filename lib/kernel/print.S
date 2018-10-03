@@ -122,7 +122,35 @@ put_char:
 .put_char_done:
 	popad
 	ret
+	
+; ---------------- set_cursor ------------------------
+; 设置光标位置, 接受一个参数(0~1999)
+; ---------------------------------------------------
+global set_cursor
+set_cursor:
+	push eax
+	push ebx
+	push edx
+	mov ebx, [esp+16]
+.set_cursor_begin:
+	mov dx, 0x03d4
+	mov al, 0x0e		; 光标高8位
+	out dx, al 
+	mov dx, 0x03d5
+	mov al, bh
+	out dx, al 
 
+	mov dx, 0x03d4
+	mov al, 0x0f		; 光标低8位
+	out dx, al 
+	mov dx, 0x03d5
+	mov al, bl
+	out dx, al
+.set_cursor_done:
+	pop edx
+	pop ebx
+	pop eax
+	ret
 ; ---------------- print_str -------------------------
 ; 通过put_char来打印字符串 cdecl调用约定
 ; ----------------------------------------------------

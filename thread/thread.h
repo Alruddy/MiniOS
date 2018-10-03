@@ -1,6 +1,7 @@
 #ifndef __THREAD_THREAD_H
 #define __THREAD_THREAD_H
 #include "stdint.h"
+#include "list.h"
 
 /*自定义通用函数类型*/
 typedef void thread_func(void*);
@@ -64,10 +65,23 @@ struct task_struct{
 	enum task_status status;
 	uint8_t priority;
 	char name[16];
+	uint8_t ticks;    		/* 每次在处理器上处理的滴答数 */
+
+	/* 在cpu上总共使用的滴答数 */
+	uint32_t elapsed_ticks;
+	/* 在线程一般队列中的节点 */
+	struct list_elem general_tag;
+	/* 用于在线程队列中的节点 */
+	struct list_elem all_list_tag;
+	/* 线程所在页表的虚拟地址 */
+	uint32_t* pgdir;
 	uint32_t stack_magic;	/* 魔数, 检测栈溢出 */
 };
 
 void thread_create(struct task_struct * pthread, thread_func function, void * func_arg);
 struct task_struct* thread_start(char * name, int prio, thread_func * function, void* func_arg);
+struct task_struct* running_thread(void);
 void init_thread(struct task_struct * pthread, char * name, int prio);
+void thread_init(void);
+void schedule(void);
 #endif
