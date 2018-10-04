@@ -67,7 +67,7 @@ struct list_elem* list_traversal(struct list * plist, function func, int arg) {
 		return NULL;
 	}
 	while(elem != &plist->tail) {
-		if(func(plist, arg)) {
+		if(func(elem, arg)) {
 			return elem;
 		}
 		elem = elem->next;
