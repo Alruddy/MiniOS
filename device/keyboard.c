@@ -3,6 +3,7 @@
 #include "print.h"
 #include "interrupt.h"
 #include "global.h"
+#include "ioqueue.h"
 
 #define KBD_BUF_PORT 0x60  /* 键盘寄存器端口号 */
 
@@ -104,12 +105,14 @@ static char keymap[][2] = {
 /* 其他暂不处理 */
 };
 
+struct ioqueue kbd_buf; /* 键盘缓冲区 */
+
 /* 键盘中断处理函数 */
 static void intr_keyboard_handler(void) {
 	/* 在这次中断之前的上次中断,先判断控制键是否按下 */
-	bool ctrl_down_last = ctrl_status;
+	/* bool ctrl_down_last = ctrl_status; */
+	/* bool alt_down_last = alt_status; */
 	bool shift_down_last = shift_status;
-	bool alt_down_last = alt_status;
 	bool caps_lock_last = caps_lock_status;
 
 	bool break_code;
@@ -169,7 +172,10 @@ static void intr_keyboard_handler(void) {
 		uint8_t index = (scancode & 0x00ff);
 		char cur_char = keymap[index][shift];
 		if (cur_char) { /* 只处理ascii不为0的键 */
-			put_char(cur_char);
+			if (!ioq_full(&kbd_buf)) {
+				// put_char(cur_char);
+				ioq_putchar(&kbd_buf, cur_char);
+			}
 			return;
 		}
 
@@ -192,6 +198,7 @@ static void intr_keyboard_handler(void) {
 /* 键盘初始化 */
 void keyboard_init() {
 	put_str("keyboard init start.\n");
+	ioqueue_init(&kbd_buf);
 	register_handler(0x21, intr_keyboard_handler);
 	put_str("keyboard init done.\n");
 }

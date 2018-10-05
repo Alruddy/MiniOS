@@ -62,7 +62,7 @@ static void pic_init(void) {
 	outb(PIC_S_DATA, 0x01);
 
 	/*设置中断屏蔽,打开主片上的时钟产生的中断 ir0*/
-	outb(PIC_M_DATA, 0xfd);
+	outb(PIC_M_DATA, 0xfc);
 	outb(PIC_S_DATA, 0xff);
 	put_str("    pic_init done\n");
 }
