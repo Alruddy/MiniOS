@@ -9,7 +9,7 @@
 #define PIC_S_CTRL 0xa0			// 从片控制口
 #define PIC_S_DATA 0xa1			// 从片数据口
 
-#define IDT_DESC_CNT 0x21 		// 中断向量数
+#define IDT_DESC_CNT 0x30 		// 中断向量数
 #define EFLAGS_IF	0x00000200	// eflags 中的if位置1
 #define GET_EFLAGS(EFLAG_VAR)  asm volatile ("pushfl; popl %0" : "=g"(EFLAG_VAR))
 
@@ -62,7 +62,7 @@ static void pic_init(void) {
 	outb(PIC_S_DATA, 0x01);
 
 	/*设置中断屏蔽,打开主片上的时钟产生的中断 ir0*/
-	outb(PIC_M_DATA, 0xfe);
+	outb(PIC_M_DATA, 0xfd);
 	outb(PIC_S_DATA, 0xff);
 	put_str("    pic_init done\n");
 }
